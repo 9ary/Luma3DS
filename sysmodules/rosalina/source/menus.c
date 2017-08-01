@@ -40,6 +40,10 @@
 #include "memory.h"
 #include "fmt.h"
 
+#define NDEBUG
+#define TJE_IMPLEMENTATION
+#include "tiny_jpeg.h"
+
 Menu rosalinaMenu = {
     "Rosalina menu",
     .nbItems = 11,
@@ -47,7 +51,7 @@ Menu rosalinaMenu = {
         { "New 3DS menu...", MENU, .menu = &N3DSMenu },
         { "Cheats...", METHOD, .method = &RosalinaMenu_Cheats },
         { "Process list", METHOD, .method = &RosalinaMenu_ProcessList },
-        { "Take screenshot (slow!)", METHOD, .method = &RosalinaMenu_TakeScreenshot },
+        { "Take screenshot", METHOD, .method = &RosalinaMenu_TakeScreenshot },
         { "Debugger options...", MENU, .menu = &debuggerMenu },
         { "System configuration...", MENU, .menu = &sysconfigMenu },
         { "Screen filters...", MENU, .menu = &screenFiltersMenu },
@@ -147,10 +151,19 @@ void RosalinaMenu_PowerOff(void) // Soft shutdown.
     while(!terminationRequest);
 }
 
-extern u8 framebufferCache[FB_BOTTOM_SIZE];
+static void tje_writer(void *buf, void *data, int size)
+{
+    memcpy(*(u8 **) buf, data, size);
+    *(u8 **) buf += size;
+}
+
 void RosalinaMenu_TakeScreenshot(void)
 {
 #define TRY(expr) if(R_FAILED(res = (expr))) goto end;
+
+    static u8 rgb_buffer[3 * 400 * 480];
+    static u8 jpeg_buffer[1024 * 1024]; // 1MB is definitely overkill but ¯\_(ツ)_/¯
+    u8 *jpeg_cursor = jpeg_buffer;
 
     u64 total;
     IFile file;
@@ -224,53 +237,20 @@ void RosalinaMenu_TakeScreenshot(void)
     days++;
     month++;
 
-    sprintf(filename, "/luma/screenshots/%04lu-%02lu-%02lu_%02lu-%02lu-%02lu.%03llu_top.bmp", year, month, days, hours, minutes, seconds, milliseconds);
+    sprintf(filename, "/luma/screenshots/%04lu-%02lu-%02lu_%02lu-%02lu-%02lu.%03llu.jpg", year, month, days, hours, minutes, seconds, milliseconds);
     TRY(IFile_Open(&file, archiveId, fsMakePath(PATH_EMPTY, ""), fsMakePath(PATH_ASCII, filename), FS_OPEN_CREATE | FS_OPEN_WRITE));
-    Draw_CreateBitmapHeader(framebufferCache, 400, 240);
 
-    for(u32 y = 0; y < 120; y++)
-        Draw_ConvertFrameBufferLine(framebufferCache + 54 + 3 * 400 * y, true, true, y);
+    // Top screen
+    for(u32 y = 0; y < 240; y++)
+        Draw_ConvertFrameBufferLine(rgb_buffer + 3 * 400 * y, true, true, 239 - y);
 
-    TRY(IFile_Write(&file, &total, framebufferCache, 54 + 3 * 400 * 120, 0));
+    // Bottom screen
+    for(u32 y = 0; y < 240; y++)
+        Draw_ConvertFrameBufferLine(rgb_buffer + 3 * 400 * (y + 240), false, true, 239 - y);
 
-    for(u32 y = 120; y < 240; y++)
-        Draw_ConvertFrameBufferLine(framebufferCache + 3 * 400 * (y - 120), true, true, y);
-
-    TRY(IFile_Write(&file, &total, framebufferCache, 3 * 400 * 120, 0));
+    tje_encode_with_func(tje_writer, &jpeg_cursor, 3, 400, 480, 3, rgb_buffer);
+    TRY(IFile_Write(&file, &total, jpeg_buffer, jpeg_cursor - jpeg_buffer, 0));
     TRY(IFile_Close(&file));
-
-    sprintf(filename, "/luma/screenshots/%04lu-%02lu-%02lu_%02lu-%02lu-%02lu.%03llu_bot.bmp", year, month, days, hours, minutes, seconds, milliseconds);
-    TRY(IFile_Open(&file, archiveId, fsMakePath(PATH_EMPTY, ""), fsMakePath(PATH_ASCII, filename), FS_OPEN_CREATE | FS_OPEN_WRITE));
-    Draw_CreateBitmapHeader(framebufferCache, 320, 240);
-
-    for(u32 y = 0; y < 120; y++)
-        Draw_ConvertFrameBufferLine(framebufferCache + 54 + 3 * 320 * y, false, true, y);
-
-    TRY(IFile_Write(&file, &total, framebufferCache, 54 + 3 * 320 * 120, 0));
-
-    for(u32 y = 120; y < 240; y++)
-        Draw_ConvertFrameBufferLine(framebufferCache + 3 * 320 * (y - 120), false, true, y);
-
-    TRY(IFile_Write(&file, &total, framebufferCache, 3 * 320 * 120, 0));
-    TRY(IFile_Close(&file));
-
-    if((GPU_FB_TOP_FMT & 0x20) && (Draw_GetCurrentFramebufferAddress(true, true) != Draw_GetCurrentFramebufferAddress(true, false)))
-    {
-        sprintf(filename, "/luma/screenshots/%04lu-%02lu-%02lu_%02lu-%02lu-%02lu.%03llu_top_right.bmp", year, month, days, hours, minutes, seconds, milliseconds);
-        TRY(IFile_Open(&file, archiveId, fsMakePath(PATH_EMPTY, ""), fsMakePath(PATH_ASCII, filename), FS_OPEN_CREATE | FS_OPEN_WRITE));
-        Draw_CreateBitmapHeader(framebufferCache, 400, 240);
-
-        for(u32 y = 0; y < 120; y++)
-            Draw_ConvertFrameBufferLine(framebufferCache + 54 + 3 * 400 * y, true, false, y);
-
-        TRY(IFile_Write(&file, &total, framebufferCache, 54 + 3 * 400 * 120, 0));
-
-        for(u32 y = 120; y < 240; y++)
-            Draw_ConvertFrameBufferLine(framebufferCache + 3 * 400 * (y - 120), true, false, y);
-
-        TRY(IFile_Write(&file, &total, framebufferCache, 3 * 400 * 120, 0));
-        TRY(IFile_Close(&file));
-    }
 
 end:
     IFile_Close(&file);
