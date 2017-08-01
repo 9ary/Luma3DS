@@ -36,6 +36,8 @@
 #include "menus/cheats.h"
 #include "minisoc.h"
 
+#include "httpc_mmap.h"
+
 u32 waitInputWithTimeout(u32 msec)
 {
     bool pressedKey = false;
@@ -43,7 +45,7 @@ u32 waitInputWithTimeout(u32 msec)
     u32 n = 0;
 
     //Wait for no keys to be pressed
-    while(HID_PAD && !terminationRequest && (msec == 0 || n < msec))
+    while(HID_PAD & ~(BUTTON_L1 | BUTTON_R1) && !terminationRequest && (msec == 0 || n < msec))
     {
         svcSleepThread(1 * 1000 * 1000LL);
         n++;
@@ -151,6 +153,8 @@ void menuThreadMain(void)
 
     bool isAcURegistered = false;
 
+    httpcInitMmap(512 * 1024); // Same size as the JPEG buffer, see RosalinaMenu_TakeScreenshot()
+
     while(!terminationRequest)
     {
         if((HID_PAD & menuCombo) == menuCombo)
@@ -173,6 +177,8 @@ void menuThreadMain(void)
         }
         svcSleepThread(50 * 1000 * 1000LL);
     }
+
+    httpcExitMmap();
 }
 
 static s32 menuRefCount = 0;
