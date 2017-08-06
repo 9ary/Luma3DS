@@ -36,6 +36,8 @@
 #include "menus/cheats.h"
 #include "minisoc.h"
 
+#include "httpc_mmap.h"
+
 u32 waitInputWithTimeout(u32 msec)
 {
     bool pressedKey = false;
@@ -151,6 +153,8 @@ void menuThreadMain(void)
 
     bool isAcURegistered = false;
 
+    httpcInitMmap(1 * 1024 * 1024);
+
     while(!terminationRequest)
     {
         if((HID_PAD & menuCombo) == menuCombo)
@@ -173,6 +177,8 @@ void menuThreadMain(void)
         }
         svcSleepThread(50 * 1000 * 1000LL);
     }
+
+    httpcExitMmap();
 }
 
 static s32 menuRefCount = 0;
