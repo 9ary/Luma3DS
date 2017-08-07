@@ -43,6 +43,7 @@
 #define NDEBUG
 #define TJE_IMPLEMENTATION
 #include "tiny_jpeg.h"
+#include "scrup.h"
 
 Menu rosalinaMenu = {
     "Rosalina menu",
@@ -159,86 +160,16 @@ static void tje_writer(void *buf, void *data, int size)
 
 void RosalinaMenu_TakeScreenshot(void)
 {
-#define TRY(expr) if(R_FAILED(res = (expr))) goto end;
-
     static u8 rgb_buffer[3 * 400 * 480];
     static u8 jpeg_buffer[1024 * 1024]; // 1MB is definitely overkill but ¯\_(ツ)_/¯
     u8 *jpeg_cursor = jpeg_buffer;
 
-    u64 total;
-    IFile file;
     Result res;
 
-    char filename[64];
-
-    FS_Archive archive;
-    FS_ArchiveID archiveId;
-    s64 out;
-    bool isSdMode;
-
-    if(R_FAILED(svcGetSystemInfo(&out, 0x10000, 0x203))) svcBreak(USERBREAK_ASSERT);
-    isSdMode = (bool)out;
-
-    archiveId = isSdMode ? ARCHIVE_SDMC : ARCHIVE_NAND_RW;
     Draw_Lock();
     Draw_RestoreFramebuffer();
 
     svcFlushEntireDataCache();
-
-    res = FSUSER_OpenArchive(&archive, archiveId, fsMakePath(PATH_EMPTY, ""));
-    if(R_SUCCEEDED(res))
-    {
-        res = FSUSER_CreateDirectory(archive, fsMakePath(PATH_ASCII, "/luma/screenshots"), 0);
-        if((u32)res == 0xC82044BE) // directory already exists
-            res = 0;
-        FSUSER_CloseArchive(archive);
-    }
-
-    u32 seconds, minutes, hours, days, year, month;
-    u64 milliseconds = osGetTime();
-    seconds = milliseconds/1000;
-    milliseconds %= 1000;
-    minutes = seconds / 60;
-    seconds %= 60;
-    hours = minutes / 60;
-    minutes %= 60;
-    days = hours / 24;
-    hours %= 24;
-
-    year = 1900; // osGetTime starts in 1900
-
-    while(true)
-    {
-        bool leapYear = (year % 4 == 0 && (year % 100 != 0 || year % 400 == 0));
-        u16 daysInYear = leapYear ? 366 : 365;
-        if(days >= daysInYear)
-        {
-            days -= daysInYear;
-            ++year;
-        }
-        else
-        {
-            static const u8 daysInMonth[12] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
-            for(month = 0; month < 12; ++month)
-            {
-                u8 dim = daysInMonth[month];
-
-                if (month == 1 && leapYear)
-                    ++dim;
-
-                if (days >= dim)
-                    days -= dim;
-                else
-                    break;
-            }
-            break;
-        }
-    }
-    days++;
-    month++;
-
-    sprintf(filename, "/luma/screenshots/%04lu-%02lu-%02lu_%02lu-%02lu-%02lu.%03llu.jpg", year, month, days, hours, minutes, seconds, milliseconds);
-    TRY(IFile_Open(&file, archiveId, fsMakePath(PATH_EMPTY, ""), fsMakePath(PATH_ASCII, filename), FS_OPEN_CREATE | FS_OPEN_WRITE));
 
     // Top screen
     for(u32 y = 0; y < 240; y++)
@@ -249,11 +180,9 @@ void RosalinaMenu_TakeScreenshot(void)
         Draw_ConvertFrameBufferLine(rgb_buffer + 3 * 400 * (y + 240), false, true, 239 - y);
 
     tje_encode_with_func(tje_writer, &jpeg_cursor, 3, 400, 480, 3, rgb_buffer);
-    TRY(IFile_Write(&file, &total, jpeg_buffer, jpeg_cursor - jpeg_buffer, 0));
-    TRY(IFile_Close(&file));
 
-end:
-    IFile_Close(&file);
+    res = scrup_upload(jpeg_buffer, jpeg_cursor - jpeg_buffer);
+
     svcFlushEntireDataCache();
     Draw_SetupFramebuffer();
     Draw_ClearFramebuffer();
@@ -266,6 +195,7 @@ end:
         Draw_DrawString(10, 10, COLOR_TITLE, "Screenshot");
         if(R_FAILED(res))
             Draw_DrawFormattedString(10, 30, COLOR_WHITE, "Operation failed (0x%08lx).", (u32)res);
+            // TODO: provide useful info on the failure instead of just an error code
         else
             Draw_DrawString(10, 30, COLOR_WHITE, "Operation succeeded.");
 
@@ -273,6 +203,4 @@ end:
         Draw_Unlock();
     }
     while(!(waitInput() & BUTTON_B) && !terminationRequest);
-
-#undef TRY
 }
