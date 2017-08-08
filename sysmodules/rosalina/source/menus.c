@@ -36,7 +36,6 @@
 #include "menus/miscellaneous.h"
 #include "menus/sysconfig.h"
 #include "menus/screen_filters.h"
-#include "ifile.h"
 #include "memory.h"
 #include "fmt.h"
 
