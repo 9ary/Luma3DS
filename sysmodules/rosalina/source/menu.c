@@ -329,7 +329,10 @@ void menuShow(Menu *root)
                 selectedItem = previousSelectedItems[nbPreviousMenus];
             }
             else
+            {
+                while (HID_PAD);
                 break;
+            }
         }
         else if(pressed & BUTTON_DOWN)
         {
