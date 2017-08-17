@@ -153,7 +153,7 @@ void menuThreadMain(void)
 
     bool isAcURegistered = false;
 
-    httpcInitMmap(1 * 1024 * 1024);
+    httpcInitMmap(512 * 1024); // Same size as the JPEG buffer, see RosalinaMenu_TakeScreenshot()
 
     while(!terminationRequest)
     {

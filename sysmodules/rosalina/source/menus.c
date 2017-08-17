@@ -160,7 +160,7 @@ static void tje_writer(void *buf, void *data, int size)
 void RosalinaMenu_TakeScreenshot(void)
 {
     static u8 rgb_buffer[3 * 400 * 480];
-    static u8 jpeg_buffer[1024 * 1024]; // 1MB is definitely overkill but ¯\_(ツ)_/¯
+    static u8 jpeg_buffer[512 * 1024]; // Should be enough
     u8 *jpeg_cursor = jpeg_buffer;
 
     Result res;
