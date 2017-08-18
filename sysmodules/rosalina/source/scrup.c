@@ -1,14 +1,7 @@
 #include <3ds.h>
+#include <string.h>
 #include "scrup.h"
 #include "ifile.h"
-#include "jsmn.h"
-#include "memory.h"
-
-static int jsoneq(const char *json, jsmntok_t *tok, const char *s)
-{
-	return (int)strlen(s) == tok->end - tok->start &&
-            strncmp(s, json + tok->start, tok->end - tok->start) == 0;
-}
 
 Result scrup_upload(u8 *jpeg_data, u32 jpeg_size)
 {
@@ -18,11 +11,7 @@ Result scrup_upload(u8 *jpeg_data, u32 jpeg_size)
     httpcContext context;
     u32 statuscode = 0;
     IFile file;
-    char json_buf[1024];
-    jsmn_parser jp;
-    jsmntok_t jt[16];
-
-    jsmn_init(&jp);
+    char config_buf[128];
 
     TRY(httpcOpenContext(&context, HTTPC_METHOD_POST, "https://wank.party/api/upload", 0));
 
@@ -38,7 +27,6 @@ Result scrup_upload(u8 *jpeg_data, u32 jpeg_size)
         FS_ArchiveID archiveId;
         s64 out;
         bool isSdMode;
-        int r;
 
         if(R_FAILED(svcGetSystemInfo(&out, 0x10000, 0x203))) svcBreak(USERBREAK_ASSERT);
         isSdMode = (bool)out;
@@ -46,34 +34,13 @@ Result scrup_upload(u8 *jpeg_data, u32 jpeg_size)
 
         TRY(IFile_Open(&file, archiveId, fsMakePath(PATH_EMPTY, ""), fsMakePath(PATH_ASCII, "/luma/scrup"), FS_OPEN_READ));
         TRY(IFile_GetSize(&file, &total));
-        total = (total < (sizeof(json_buf) - 1)) ? total : (sizeof(json_buf) - 1);
-        TRY(IFile_Read(&file, &total, json_buf, total));
+        total = (total < (sizeof(config_buf) - 1)) ? total : (sizeof(config_buf) - 1);
+        TRY(IFile_Read(&file, &total, config_buf, total));
+        config_buf[total] = '\0';
 
-        r = jsmn_parse(&jp, json_buf, total, jt, sizeof(jt) / sizeof(jsmntok_t));
-        if (r < 0)
-        {
-            res = -1;
-            goto end;
-        }
-
-        for (int i = 0; i < r; i++)
-        {
-            if (jsoneq(json_buf, &jt[i], "api_key"))
-            {
-                i++;
-                json_buf[jt[i].end] = '\0';
-                TRY(httpcAddPostDataAscii(&context, "key", json_buf + jt[i].start));
-                continue;
-            }
-
-            if (jsoneq(json_buf, &jt[i], "tg_uid"))
-            {
-                i++;
-                json_buf[jt[i].end] = '\0';
-                TRY(httpcAddPostDataAscii(&context, "tg_uid", json_buf + jt[i].start));
-                continue;
-            }
-        }
+        // This is probably going to crash if the config file is malformed, not my problem
+        TRY(httpcAddPostDataAscii(&context, "key", strtok(config_buf, ";")));
+        TRY(httpcAddPostDataAscii(&context, "tg_uid", strtok(NULL, ";")));
     }
 
     TRY(httpcAddPostDataBinary(&context, "file\"; filename=\"3dscrot.jpg", jpeg_data, jpeg_size));
