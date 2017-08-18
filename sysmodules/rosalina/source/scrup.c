@@ -28,7 +28,7 @@ Result scrup_upload(u8 *jpeg_data, u32 jpeg_size)
     TRY(httpcOpenContext(&context, HTTPC_METHOD_POST, "https://wank.party/api/upload", 0));
 
     // This disables SSL cert verification, so https:// will be usable
-    // TODO: add a real certificate fingerprint
+    // TODO: figure out why Let's Encrypt root certs don't work
     TRY(httpcSetSSLOpt(&context, SSLCOPT_DisableVerify));
     TRY(httpcSetKeepAlive(&context, HTTPC_KEEPALIVE_ENABLED));
     TRY(httpcAddRequestHeaderField(&context, "User-Agent", "luma-scrup/1.0.0"));
