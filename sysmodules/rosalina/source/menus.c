@@ -194,7 +194,6 @@ void RosalinaMenu_TakeScreenshot(void)
         Draw_DrawString(10, 10, COLOR_TITLE, "Screenshot");
         if(R_FAILED(res))
             Draw_DrawFormattedString(10, 30, COLOR_WHITE, "Operation failed (0x%08lx).", (u32)res);
-            // TODO: provide useful info on the failure instead of just an error code
         else
             Draw_DrawString(10, 30, COLOR_WHITE, "Operation succeeded.");
 

@@ -17,7 +17,6 @@ Result scrup_upload(u8 *jpeg_data, u32 jpeg_size)
     Result res = 0;
     httpcContext context;
     u32 statuscode = 0;
-    u32 contentsize = 0, readsize = 0, size = 0;
     IFile file;
     char json_buf[1024];
     jsmn_parser jp;
@@ -82,7 +81,20 @@ Result scrup_upload(u8 *jpeg_data, u32 jpeg_size)
     TRY(httpcBeginRequest(&context));
     TRY(httpcGetResponseStatusCodeTimeout(&context, &statuscode, 15ULL * 1000 * 1000 * 1000));
 
-    // TODO: check response code and parse the API response
+    if (statuscode != 200)
+    {
+        // BCD-encode the status code to make it human readable in the hex representation
+        res = 0;
+        while (statuscode)
+        {
+            res <<= 4;
+            res |= statuscode % 10;
+            statuscode /= 10;
+        }
+        res |= 0xFFFF0000;
+
+        goto end;
+    }
 
 end:
     IFile_Close(&file);
