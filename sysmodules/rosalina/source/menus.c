@@ -157,6 +157,13 @@ static void tje_writer(void *buf, void *data, int size)
     *(u8 **) buf += size;
 }
 
+enum screens
+{
+    top,
+    bottom,
+    both
+};
+
 void RosalinaMenu_TakeScreenshot(void)
 {
     static u8 rgb_buffer[3 * 400 * 480];
@@ -165,20 +172,45 @@ void RosalinaMenu_TakeScreenshot(void)
 
     Result res;
 
+    u32 buttons = HID_PAD;
+    int width = 0, height = 0;
+
+    enum screens screen = top;
+    if (buttons & BUTTON_L1)
+        screen = both;
+    else if (buttons & BUTTON_R1)
+        screen = bottom;
+
     Draw_Lock();
     Draw_RestoreFramebuffer();
 
     svcFlushEntireDataCache();
 
-    // Top screen
-    for(u32 y = 0; y < 240; y++)
-        Draw_ConvertFrameBufferLine(rgb_buffer + 3 * 400 * y, true, true, 239 - y);
+    switch (screen)
+    {
+    case both:
+        // Bottom screen
+        for(u32 y = 0; y < 240; y++)
+            Draw_ConvertFrameBufferLine(rgb_buffer + 3 * 400 * (y + 240), false, true, 239 - y);
+        height += 240;
 
-    // Bottom screen
-    for(u32 y = 0; y < 240; y++)
-        Draw_ConvertFrameBufferLine(rgb_buffer + 3 * 400 * (y + 240), false, true, 239 - y);
+    // Falls through
+    case top:
+        // Top screen
+        for(u32 y = 0; y < 240; y++)
+            Draw_ConvertFrameBufferLine(rgb_buffer + 3 * 400 * y, true, true, 239 - y);
+        width = 400;
+        height += 240;
+        break;
 
-    tje_encode_with_func(tje_writer, &jpeg_cursor, 3, 400, 480, 3, rgb_buffer);
+    case bottom:
+        for(u32 y = 0; y < 240; y++)
+            Draw_ConvertFrameBufferLine(rgb_buffer + 3 * 320 * y, false, false, 239 - y);
+        width = 320;
+        height = 240;
+    }
+
+    tje_encode_with_func(tje_writer, &jpeg_cursor, 3, width, height, 3, rgb_buffer);
 
     res = scrup_upload(jpeg_buffer, jpeg_cursor - jpeg_buffer);
 

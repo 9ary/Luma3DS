@@ -251,17 +251,17 @@ static inline void Draw_ConvertPixelToRGB8(u8 *dst, const u8 *src, GSPGPU_Frameb
     }
 }
 
-void Draw_ConvertFrameBufferLine(u8 *line, bool top, bool left, u32 y)
+void Draw_ConvertFrameBufferLine(u8 *line, bool top, bool wide, u32 y)
 {
     GSPGPU_FramebufferFormats fmt = top ? (GSPGPU_FramebufferFormats)(GPU_FB_TOP_FMT & 7) : (GSPGPU_FramebufferFormats)(GPU_FB_BOTTOM_FMT & 7);
     u32 width = top ? 400 : 320;
     u8 formatSizes[] = { 4, 3, 2, 2, 2 };
     u32 stride = top ? GPU_FB_TOP_STRIDE : GPU_FB_BOTTOM_STRIDE;
 
-    u32 pa = Draw_GetCurrentFramebufferAddress(top, left);
+    u32 pa = Draw_GetCurrentFramebufferAddress(top, true);
     u8 *addr = (u8 *)PA_PTR(pa);
 
-    if (!top) {
+    if (!top && wide) {
         memset(line, 0, 40 * 3);
         memset(line + (40 + 320) * 3, 0, 40 * 3);
         line += 40 * 3;
