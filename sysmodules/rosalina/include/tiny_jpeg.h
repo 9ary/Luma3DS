@@ -553,6 +553,7 @@ static uint8_t* tjei_huff_get_code_lengths(uint8_t huffsize[/*256*/], uint8_t co
 // Fills out the prefixes for each code.
 static uint16_t* tjei_huff_get_codes(uint16_t codes[], uint8_t* huffsize, int64_t count)
 {
+    (void) count;
     uint16_t code = 0;
     int k = 0;
     uint8_t sz = huffsize[0];
@@ -1232,7 +1233,7 @@ int tje_encode_with_func(tje_write_func* func,
         break;
     case 2:
         qt_factor = 10;
-        // don't break. fall through.
+    // Falls through
     case 1:
         for ( int i = 0; i < 64; ++i ) {
             state.qt_luma[i]   = tjei_default_qt_luma_from_spec[i] / qt_factor;
