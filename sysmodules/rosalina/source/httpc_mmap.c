@@ -94,7 +94,7 @@ static Result HTTPC_Initialize(Handle handle, u32 sharedmem_size, Handle sharedm
 
 	cmdbuf[0]=IPC_MakeHeader(0x1,1,4); // 0x10044
 	cmdbuf[1]=sharedmem_size; // POST buffer size (page aligned)
-	cmdbuf[2]=IPC_Desc_CurProcessHandle();
+	cmdbuf[2]=IPC_Desc_CurProcessId();
 	cmdbuf[4]=IPC_Desc_SharedHandles(1);
 	cmdbuf[5]=sharedmem_handle;// POST buffer memory block handle
 
